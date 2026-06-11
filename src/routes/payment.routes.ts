@@ -1,5 +1,5 @@
-
 import express from "express";
+import 'dotenv/config';
 import prisma from "../config/prisma.js";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";

@@ -1,4 +1,4 @@
-import { Cashfree } from "cashfree-pg";
+import 'dotenv/config';
 import express from "express";
 import crypto from "crypto";
 import prisma from "../config/prisma.js";
@@ -40,6 +40,8 @@ router.post("/cashfree/webhook", async (req, res) => {
     }
 
     const payload = req.body;
+
+    logger.info("User payment log: ", payload)
 
     if (payload?.data?.payment?.payment_status === "SUCCESS") {
       const igAccountId = payload.data.customer_details.customer_id;

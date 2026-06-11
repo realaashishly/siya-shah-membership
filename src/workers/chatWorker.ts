@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import { redisConnection } from '../config/redis.js';
 import { logger } from '../utils/logger.js';
 import { ChatHistory } from '../models/ChatHistory.js';
-import { sendInstagramMessage } from '../services/instagram.js';
+import { sendInstagramAction, sendInstagramMessage } from '../services/instagram.js';
 import prisma from '../config/prisma.js';
 import { generateOllamaResponse } from '../ai/provider/ollama.js';
 import { generateNvidiaFallback } from '../ai/provider/nvidia.js';
@@ -12,6 +12,8 @@ export const chatWorker = new Worker(
   async (job) => {
     const { igAccountId, messageText } = job.data;
     logger.info(`Processing message for: ${igAccountId}`);
+
+    await sendInstagramAction(igAccountId)
 
     try {
       let chat = await ChatHistory.findOne({ igAccountId });
@@ -51,8 +53,6 @@ export const chatWorker = new Worker(
         aiResponseText = await generateNvidiaFallback(fullHistoryString);
       }
 
-      // --- POST-INFERENCE DATABASE UPDATES ---
-      // We only do this once, regardless of which AI provided the response
       chat.messages.push({
         role: 'assistant', content: aiResponseText,
         timestamp: new Date()
@@ -67,7 +67,7 @@ export const chatWorker = new Worker(
         }
       });
 
-      // --- SEND MESSAGE ---
+      
       await sendInstagramMessage(igAccountId, aiResponseText);
       logger.success(`Response sent to ${igAccountId}. 1 credit deducted.`);
       

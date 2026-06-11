@@ -1,13 +1,19 @@
 import express from "express";
+const router = express.Router();
+
+import 'dotenv/config';
+
+
 import { logger } from "../utils/logger.js";
-import prisma from "../config/prisma.js";
 import {
   getInstagramUserProfile,
   sendInstagramMessage,
 } from "../services/instagram.js";
 import { sleep } from "../utils/index.js";
 import { chatQueue } from "../queues/chatQueue.js";
-const router = express.Router();
+
+
+import prisma from "../config/prisma.js";
 
 router.get("/meta/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -46,6 +52,7 @@ router.post("/meta/webhook", async (req, res) => {
               const messageContent = messagingEvent.message.text;
               const checkoutUrl = process.env.NEXT_PUBLIC_API_URL;
 
+
               logger.info(
                 `Received DM from IG User ${igAccountId}: "${messageContent}"`,
               );
@@ -55,14 +62,18 @@ router.post("/meta/webhook", async (req, res) => {
               });
 
               if (!user) {
+                logger.warn("User not found creating user");
+                
                 const profileInfo = await getInstagramUserProfile(igAccountId);
+
+                logger.info("profile info: ", profileInfo)
 
                 await sendInstagramMessage(igAccountId, "hii");
                 await sleep(800);
 
                 await sendInstagramMessage(
                   igAccountId,
-                  "mujhe spicy baat karni hai? 6rs ke pass kharido aur din bhar baat karo 👇👇",
+                  "mujhse baat karni hai? 9rs ke pass kharido aur din bhar baat karo 👇👇",
                 );
                 await sleep(800);
 
@@ -140,5 +151,6 @@ router.post("/meta/webhook", async (req, res) => {
 
   return res.sendStatus(404);
 });
+
 
 export default router;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import 'dotenv/config';
 
 export const connectMongoDB = async (): Promise<void> => {
   const uri = process.env.MONGODB_URI;

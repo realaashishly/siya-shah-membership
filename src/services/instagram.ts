@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.js";
+import 'dotenv/config';
 
 const PAGE_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const url = `https://graph.instagram.com/v25.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -61,11 +62,13 @@ export async function sendInstagramAction(recipientId: string, action = 'typing_
 }
 
 export async function getInstagramUserProfile(igAccountId: string) {
-  const url = `https://graph.instagram.com/v25.0/${igAccountId}?fields=name,username,profile_picture_url&access_token=${PAGE_ACCESS_TOKEN}`;
+  const url = `https://graph.instagram.com/v25.0/${igAccountId}?fields=name,username,profile_pic&access_token=${PAGE_ACCESS_TOKEN}`;
 
   try {
     const response = await fetch(url);
     const data = await response.json();
+
+    logger.info("info instgram: ", data)
 
     if (data.error) {
       logger.error("API Error fetching profile:", data.error);
@@ -75,7 +78,7 @@ export async function getInstagramUserProfile(igAccountId: string) {
     return {
       username: data.username || "Unknown",
       name: data.name || "Unknown",
-      profile_picture_url: data.profile_picture_url || ""
+      profile_picture_url: data.profile_pic || ""
     };
   } catch (error) {
     logger.error("Network error fetching IG user profile:", error);
