@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                            String    @id @default(uuid())
+  
+  // Instagram Data
+  igAccountId                   String    @unique
+  username                      String?   @unique 
+  name                          String? 
+  igProfileUrl                  String?   
+  
+  // Moderation & Roles
+  role                          String    @default("USER") 
+  isBanned                      Boolean   @default(false)
+  
+  // Interaction State Flags
+  hasReceivedPitchRequest       Boolean   @default(false)
+  hasReceivedRenewalPassRequest Boolean   @default(false)
+  lastInteractedAt              DateTime? 
+  
+  // Slot Booking State
+  bookedDate                    DateTime?
+  bookedStartTime               DateTime?
+  bookedEndTime                 DateTime?
+  
+  // Subscription / Pass State
+  passValidity                  DateTime? 
+  credits                       Int       @default(0) 
+  
+  // Business & Payments
+  paymentCustomerId             String?   
+  totalPassesPurchased          Int       @default(0) 
+
+  transactions                  Transaction[]
+  
+  // System Timestamps
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+}
+
+model PricingTier {
+  id              String        @id @default(uuid())
+  name            String        // e.g., "Starter Pass", "Power User Pass"
+  description     String?       
+  price           Float         
+  creditsAwarded  Int           
+  durationHours   Int           
+  isActive        Boolean       @default(true)
+  
+  // Relations
+  transactions    Transaction[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pricingTierId   String
+  pricingTier     PricingTier       @relation(fields: [pricingTierId], references: [id])
+
+  orderId       String            @unique
+  cfPaymentId   String?           @unique
+
+  amount        Float             @default(9.00)
+  currency      String            @default("INR")
+  status        TransactionStatus @default(PENDING)
+  paymentMethod String?
+
+  failureReason String?
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([pricingTierId])
+}
+
+enum Role {
+  ADMIN
+  USER 
+  DEVELOPER
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+
