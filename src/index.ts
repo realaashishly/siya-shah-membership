@@ -35,8 +35,8 @@ const startServer = async () => {
 
   app.use("/api", instagramWebhookRouter);
   app.use("/api", bookingSlotRouter);
-  app.use("/", cashfreeWebhookRouter);
-  app.use("/", paymentRouter);
+  app.use("/api/payments", cashfreeWebhookRouter);
+  app.use("/api/payments", paymentRouter);
 
   app.listen(PORT, () => {
     console.log(`[server]: Server is running at http://localhost:${PORT}`);

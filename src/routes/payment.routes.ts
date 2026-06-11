@@ -14,24 +14,24 @@ declare module "express-serve-static-core" {
 const router = express.Router();
 
 router.post("/create/order", async (req, res) => {
-  const { igAccountId, igUsername, bookingDate, startBookingTime } = req.body;
+  const { igAccountId, igUsername, bookingDate } = req.body;
 
-  if (!igAccountId || !bookingDate || !startBookingTime || !igUsername) {
+  if (!igAccountId || !igUsername) {
     logger.error("Missing required fields: igAccountId, startTime, endTime")
     return res.status(400).json({
       error: "Missing required fields: igAccountId, startTime, endTime",
     });
   }
 
-  const endBookingTime = new Date(startBookingTime.getTime() + 60 * 60 * 1000);
+  // const endBookingTime = new Date(startBookingTime.getTime() + 60 * 60 * 1000);
 
   try {
     const user = await prisma.user.update({
       where: { igAccountId },
       data: {
         bookedDate: bookingDate,
-        bookedStartTime: startBookingTime,
-        bookedEndTime: endBookingTime,
+        // bookedStartTime: startBookingTime,
+        // bookedEndTime: endBookingTime,
       },
     });
 
