@@ -10,6 +10,7 @@ import instagramWebhookRouter from "./routes/meta.webhook.js";
 import cashfreeWebhookRouter from "./routes/cashfree.webhook.js";
 import paymentRouter from "./routes/payment.routes.js";
 import bookingSlotRouter from "./routes/available.slot.js";
+import './workers/chatWorker.js'
 
 const app = express();
 const PORT = process.env.PORT || 8000;

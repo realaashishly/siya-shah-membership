@@ -14,9 +14,9 @@ declare module "express-serve-static-core" {
 const router = express.Router();
 
 router.post("/create/order", async (req, res) => {
-  const { igAccountId, igUsername, bookingDate } = req.body;
+  const { igAccountId } = req.body;
 
-  if (!igAccountId || !igUsername) {
+  if (!igAccountId) {
     logger.error("Missing required fields: igAccountId, startTime, endTime")
     return res.status(400).json({
       error: "Missing required fields: igAccountId, startTime, endTime",
@@ -26,15 +26,6 @@ router.post("/create/order", async (req, res) => {
   // const endBookingTime = new Date(startBookingTime.getTime() + 60 * 60 * 1000);
 
   try {
-    const user = await prisma.user.update({
-      where: { igAccountId },
-      data: {
-        bookedDate: bookingDate,
-        // bookedStartTime: startBookingTime,
-        // bookedEndTime: endBookingTime,
-      },
-    });
-
     const randId = uuidv4();
 
     const response = await axios.post(

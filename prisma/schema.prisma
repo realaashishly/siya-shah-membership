@@ -57,9 +57,6 @@ model PricingTier {
   creditsAwarded  Int           
   durationHours   Int           
   isActive        Boolean       @default(true)
-  
-  // Relations
-  transactions    Transaction[]
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -70,8 +67,6 @@ model Transaction {
   userId        String
   user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  pricingTierId   String
-  pricingTier     PricingTier       @relation(fields: [pricingTierId], references: [id])
 
   orderId       String            @unique
   cfPaymentId   String?           @unique
@@ -88,7 +83,6 @@ model Transaction {
 
   @@index([userId])
   @@index([orderId])
-  @@index([pricingTierId])
 }
 
 enum Role {

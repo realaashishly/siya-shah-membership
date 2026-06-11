@@ -10,10 +10,11 @@ import { generateNvidiaFallback } from '../ai/provider/nvidia.js';
 export const chatWorker = new Worker(
   'instagram-chat-queue',
   async (job) => {
-    const { igAccountId, messageText } = job.data;
+    // FIX: Changed messageText to messageContent to match the queue payload
+    const { igAccountId, messageContent } = job.data; 
     logger.info(`Processing message for: ${igAccountId}`);
 
-    await sendInstagramAction(igAccountId)
+    await sendInstagramAction(igAccountId);
 
     try {
       let chat = await ChatHistory.findOne({ igAccountId });
@@ -30,7 +31,8 @@ export const chatWorker = new Worker(
       }
 
       chat.messages.push({
-        role: 'user', content: messageText,
+        role: 'user', 
+        content: messageContent, // FIX: Updated here
         timestamp: new Date()
       });
 
@@ -40,10 +42,11 @@ export const chatWorker = new Worker(
       const formattedHistory = historyWithoutCurrent
         .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
         .join("\n");
-     
+      
       let aiResponseText: string;
       try {
-        aiResponseText = await generateOllamaResponse(formattedHistory, messageText);
+        // FIX: Updated to pass messageContent
+        aiResponseText = await generateOllamaResponse(formattedHistory, messageContent);
       } catch (ollamaError) {
         logger.warn(`Ollama failed for ${igAccountId}, falling back to NVIDIA...`);
         const fullHistoryString = recentMessages
@@ -54,7 +57,8 @@ export const chatWorker = new Worker(
       }
 
       chat.messages.push({
-        role: 'assistant', content: aiResponseText,
+        role: 'assistant', 
+        content: aiResponseText,
         timestamp: new Date()
       });
       await chat.save();
@@ -67,9 +71,8 @@ export const chatWorker = new Worker(
         }
       });
 
-      
       await sendInstagramMessage(igAccountId, aiResponseText);
-      logger.success(`Response sent to ${igAccountId}. 1 credit deducted.`);
+      logger.info(`Response sent to ${igAccountId}. 1 credit deducted.`); // Changed to logger.info as logger.success is non-standard in most loggers
       
     } catch (error) {
       // This catch block now only triggers if the DB fails, Instagram fails, or BOTH AIs fail.

@@ -76,9 +76,9 @@ export async function getInstagramUserProfile(igAccountId: string) {
     }
 
     return {
-      username: data.username || "Unknown",
-      name: data.name || "Unknown",
-      profile_picture_url: data.profile_pic || ""
+      username: data.username || null,
+      name: data.name || null,
+      profile_picture_url: data.profile_pic || null
     };
   } catch (error) {
     logger.error("Network error fetching IG user profile:", error);
