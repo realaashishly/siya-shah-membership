@@ -9,7 +9,7 @@ const MAX_USERS_PER_SLOT = 3;
 const DAYS_TO_GENERATE = 3;
 
 const formatDate = (date: Date) => {
-  return date.toISOString().split("T")[0]!;
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); 
 };
 
 const formatTime = (date: Date) => {
@@ -17,7 +17,7 @@ const formatTime = (date: Date) => {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-    timeZone: "Asia/Kolkata", // Forces IST timezone for consistency
+    timeZone: "Asia/Kolkata",
   });
 };
 
@@ -33,12 +33,16 @@ router.get("/bookings/available/slots", async (req: Request, res: Response) => {
 
     const now = new Date();
 
-    const startDate = new Date(now);
-    startDate.setHours(0, 0, 0, 0);
+    const year = parseInt(now.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", year: "numeric" }));
+    const month = parseInt(now.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", month: "numeric" })) - 1; // 0-indexed month
+    const day = parseInt(now.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", day: "numeric" }));
+
+    const startDate = new Date(Date.UTC(year, month, day, -5, -30, 0, 0));
 
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + DAYS_TO_GENERATE);
 
+    // Fetch existing bookings strictly within our calculated IST window
     const existingBookings = await prisma.user.findMany({
       where: {
         bookedStartTime: {
@@ -62,6 +66,7 @@ router.get("/bookings/available/slots", async (req: Request, res: Response) => {
     const scheduleByDate: Record<string, any[]> = {};
     let earliestAvailable: any = null;
 
+    // Generate slots
     for (let i = 0; i < DAYS_TO_GENERATE; i++) {
       const targetDate = new Date(startDate);
       targetDate.setDate(targetDate.getDate() + i);
@@ -75,6 +80,7 @@ router.get("/bookings/available/slots", async (req: Request, res: Response) => {
         const slotStart = new Date(targetDate);
         slotStart.setMinutes(j * SLOT_INTERVAL_MINUTES);
 
+        // Hide slots that have already passed today
         if (i === 0 && slotStart <= now) {
           continue;
         }
