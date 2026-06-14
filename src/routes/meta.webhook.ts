@@ -3,7 +3,6 @@ const router = express.Router();
 
 import "dotenv/config";
 
-import { logger } from "../utils/logger.js";
 import {
   getInstagramUserProfile,
   sendInstagramMessage,
@@ -23,7 +22,6 @@ router.get("/meta/webhook", (req, res) => {
     if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) {
       return res.status(200).type("text/plain").send(challenge);
     } else {
-      logger.error("Meta Webhook verification failed: Token mismatch.");
       return res.sendStatus(403);
     }
   }
@@ -129,14 +127,11 @@ router.post("/meta/webhook", async (req, res) => {
                 }
 
                 if (user.purchasedPassName === "Premium") {
-                  logger.info(
-                    `Human handoff: Ignored message from Premium user ${igAccountId}.`,
-                  );
                   continue;
                 }
               }
 
-              if(user && user.totalPassesPurchased <= 0){
+              if (user && user.totalPassesPurchased <= 0) {
                 // await sendInstagramMessage(
                 //   igAccountId,
                 //   "Pass kharidlo",
@@ -165,18 +160,11 @@ router.post("/meta/webhook", async (req, res) => {
                 const state = await existingJob.getState();
 
                 if (state === "failed" || state === "completed") {
-                  logger.warn(
-                    `Cleaning up old job state for user ${igAccountId}`,
-                  );
                   await existingJob.remove();
                 } else if (state === "active") {
                   jobIdToUse = `debounce-${igAccountId}-${Date.now()}`;
-                  logger.info(
-                    `User ${igAccountId} messaged while AI is typing. Queuing next.`,
-                  );
                 }
               }
-              logger.success("removed stuck jobs");
 
               if (user.purchasedPassName === "Basic") {
                 await chatQueue.add(
@@ -196,7 +184,7 @@ router.post("/meta/webhook", async (req, res) => {
         }
       }
     } catch (error) {
-      logger.error("Error processing webhook payload:", error);
+      return res.status(500).send("Internal server error");
     }
   }
 });

@@ -1,9 +1,7 @@
 import express from "express";
 import "dotenv/config";
-import prisma from "../config/prisma.js";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
-import { logger } from "../utils/logger.js";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -16,13 +14,8 @@ const router = express.Router();
 router.post("/create/order", async (req, res) => {
   const { igAccountId, planName } = req.body;
 
-  logger.info(
-    `Processing payment request: igAccountId=${igAccountId}, planName=${planName}`,
-  );
-
   // 1. Validate Input
   if (!igAccountId || !planName) {
-    logger.error("Missing required fields: igAccountId or planName");
     return res.status(400).json({
       success: false,
       error: "Missing required fields: igAccountId and planName are required.",
@@ -38,7 +31,6 @@ router.post("/create/order", async (req, res) => {
   const amount = prices[planName as keyof typeof prices];
 
   if (!amount) {
-    logger.error(`Invalid plan name received: ${planName}`);
     return res.status(400).json({
       success: false,
       error: `Invalid plan name: ${planName}. Available plans are: ${Object.keys(prices).join(", ")}`,
@@ -85,9 +77,6 @@ router.post("/create/order", async (req, res) => {
       error.message ||
       "Unknown Cashfree API Error";
 
-    logger.error(
-      `Cashfree booking initiation failed for ${igAccountId}: ${apiError}`,
-    );
 
     return res.status(500).json({
       success: false,

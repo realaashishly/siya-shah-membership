@@ -1,11 +1,12 @@
-import { logger } from "../utils/logger.js";
-import 'dotenv/config';
+import "dotenv/config";
 
 const PAGE_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const url = `https://graph.instagram.com/v25.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-export async function sendInstagramMessage(recipientId: string, messageText: string) {
-
+export async function sendInstagramMessage(
+  recipientId: string,
+  messageText: string,
+) {
   const payload = {
     recipient: { id: recipientId },
     message: { text: messageText },
@@ -21,42 +22,39 @@ export async function sendInstagramMessage(recipientId: string, messageText: str
     const data = await response.json();
 
     if (data.error) {
-      logger.error("Error sending IG message:", data.error);
       return false;
     }
 
-    logger.info(`Successfully sent reply to ${recipientId}`);
     return true;
   } catch (error) {
-    logger.error("Network error sending IG message:", error);
     return false;
   }
 }
 
-export async function sendInstagramAction(recipientId: string, action = 'typing_on') {
-  
+export async function sendInstagramAction(
+  recipientId: string,
+  action = "typing_on",
+) {
   const payload = {
     recipient: { id: recipientId },
-    sender_action: action
+    sender_action: action,
   };
 
   try {
     const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
-    
+
     if (data.error) {
-      logger.error('Error sending IG typing action');
       return false;
     }
-    
+
     return true;
   } catch (error) {
-    logger.error('Network error sending IG typing action:', error);
     return false;
   }
 }
@@ -68,20 +66,24 @@ export async function getInstagramUserProfile(igAccountId: string) {
     const response = await fetch(url);
     const data = await response.json();
 
-    logger.info("info instgram: ", data)
-
     if (data.error) {
-      logger.error("API Error fetching profile:", data.error);
-      return { username: "Unknown User", name: "Unknown User", profile_picture_url: "" };
+      return {
+        username: "Unknown User",
+        name: "Unknown User",
+        profile_picture_url: "",
+      };
     }
 
     return {
       username: data.username || null,
       name: data.name || null,
-      profile_picture_url: data.profile_pic || null
+      profile_picture_url: data.profile_pic || null,
     };
   } catch (error) {
-    logger.error("Network error fetching IG user profile:", error);
-    return { username: "Unknown User", name: "Unknown User", profile_picture_url: "" };
+    return {
+      username: "Unknown User",
+      name: "Unknown User",
+      profile_picture_url: "",
+    };
   }
 }

@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import crypto from "crypto";
 import prisma from "../config/prisma.js";
-import { logger } from "../utils/logger.js";
 import { sendInstagramMessage } from "../services/instagram.js";
 import { sleep } from "../utils/index.js";
 
@@ -22,7 +21,6 @@ router.post("/cashfree/webhook", async (req, res) => {
     const signature = req.headers["x-webhook-signature"];
 
     if (!req.rawBody) {
-      logger.error("Raw body missing.");
       return res.status(400).send("Missing raw body");
     }
 
@@ -33,14 +31,10 @@ router.post("/cashfree/webhook", async (req, res) => {
       .digest("base64");
 
     if (expectedSignature !== signature) {
-      logger.error("Webhook signature mismatch!");
       return res.status(401).send("Invalid signature");
     }
 
-    
     const payload = req.body;
-
-    logger.info("cashfree webhook payload", payload);
 
     if (payload?.data?.payment?.payment_status !== "SUCCESS") {
       return res
@@ -65,23 +59,17 @@ router.post("/cashfree/webhook", async (req, res) => {
     }
 
     if (!amount) {
-      logger.error("Missing amount from webhook payload");
       return res
-        .status(400)
-        .json({ success: false, message: "Missing amount from webhook payload" });
+        .status(200)
+        .json({ success: true, message: "Ignored: Missing amount" });
     }
 
     const paymentMethod = payload?.data?.payment?.payment_group || "UNKNOWN";
 
-    logger.info("User igAccount: ", igAccountId);
-
     if (!igAccountId) {
       return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Missing igAccountId from webhook payload",
-        });
+        .status(200)
+        .json({ success: true, message: "Ignored: Missing igAccountId" });
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -90,12 +78,9 @@ router.post("/cashfree/webhook", async (req, res) => {
     });
 
     if (!existingUser) {
-      logger.error(
-        `Webhook Error: User with igAccountId ${igAccountId} not found in DB.`,
-      );
       return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+        .status(200)
+        .json({ success: true, message: "Ignored: User not found" });
     }
 
     const tier = await prisma.pricingTier.findFirst({
@@ -103,9 +88,6 @@ router.post("/cashfree/webhook", async (req, res) => {
     });
 
     if (!tier) {
-      logger.error(
-        `Critical Error: Purchased tier '${purchasedPlan}' does not exist in the database!`,
-      );
       return res.status(400).json({ error: "Invalid pricing tier" });
     }
 
@@ -165,27 +147,24 @@ router.post("/cashfree/webhook", async (req, res) => {
     try {
       const userInfo = await prisma.user.findUnique({
         where: { igAccountId: igAccountId },
-        select: { id: true, credits: true, purchasedPassName: true},
+        select: { id: true, credits: true, purchasedPassName: true },
       });
 
-      if(userInfo?.purchasedPassName === 'Basic'){
+      if (userInfo?.purchasedPassName === "Basic") {
         await sendInstagramMessage(igAccountId as string, "hii");
       }
-      if(userInfo?.purchasedPassName === 'Premium'){
+      if (userInfo?.purchasedPassName === "Premium") {
         // await sendInstagramMessage(igAccountId as string, "hiii");
-        
       }
-      logger.info(`Successfully sent reply to ${igAccountId}`);
     } catch (error) {
-      logger.error(
-        "Payment succeeded, but failed to send Instagram DM:",
-        error,
-      );
+      if (!res.headersSent) {
+        res.status(500).send("Internal server error");
+      }
     }
-
-
   } catch (error) {
-    res.status(500).send("Internal server error");
+    if (!res.headersSent) {
+      res.status(500).send("Internal server error");
+    }
   }
 });
 

@@ -12,8 +12,7 @@ import paymentRouter from "./routes/payment.routes.js";
 import bookingSlotRouter from "./routes/available.slot.js";
 import './workers/chatWorker.js'
 import { chatQueue } from "./queues/chatQueue.js";
-import { logger } from "./utils/logger.js";
-import { redisConnection } from "./config/redis.js";
+
 
 const app = express();
 const PORT = process.env.PORT || 8000;
