@@ -4,6 +4,7 @@ import crypto from "crypto";
 import prisma from "../config/prisma.js";
 import { logger } from "../utils/logger.js";
 import { sendInstagramMessage } from "../services/instagram.js";
+import { sleep } from "../utils/index.js";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -38,6 +39,8 @@ router.post("/cashfree/webhook", async (req, res) => {
 
     const payload = req.body;
 
+    logger.info("cashfree webhook payload", payload);
+
     if (payload?.data?.payment?.payment_status !== "SUCCESS") {
       return res
         .status(200)
@@ -50,9 +53,23 @@ router.post("/cashfree/webhook", async (req, res) => {
       payload?.data?.payment?.cf_payment_id ||
       payload?.data?.payment?.payment_id ||
       "UNKNOWN_ID";
-    const amount = payload?.data?.payment?.payment_amount
-      ? Number(payload.data.payment.payment_amount)
-      : 9;
+    const amount = Number(payload.data.payment.payment_amount);
+
+    let purchasedPlan = "Basic";
+
+    if (amount === 9) {
+      purchasedPlan = "Basic";
+    } else if (amount === 99) {
+      purchasedPlan = "Premium";
+    }
+
+    if (!amount) {
+      logger.error("Missing amount from webhook payload");
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing amount from webhook payload" });
+    }
+
     const paymentMethod = payload?.data?.payment?.payment_group || "UNKNOWN";
 
     logger.info("User igAccount: ", igAccountId);
@@ -80,6 +97,26 @@ router.post("/cashfree/webhook", async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    const tier = await prisma.pricingTier.findFirst({
+      where: { name: purchasedPlan },
+    });
+
+    if (!tier) {
+      logger.error(
+        `Critical Error: Purchased tier '${purchasedPlan}' does not exist in the database!`,
+      );
+      return res.status(400).json({ error: "Invalid pricing tier" });
+    }
+
+    const expirationDate = new Date(
+      Date.now() + tier.durationHours * 60 * 60 * 1000,
+    );
+
+    const now = new Date();
+    const date = new Date(now.toISOString().split("T")[0] + "T00:00:00.000Z");
+    const startTime = now;
+    const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
     await prisma.$transaction([
       prisma.transaction.upsert({
         where: { orderId: orderId },
@@ -89,6 +126,7 @@ router.post("/cashfree/webhook", async (req, res) => {
           amount: amount,
           paymentMethod: paymentMethod,
           userId: existingUser.id,
+          pricingTierId: tier.id,
         },
         create: {
           orderId: orderId,
@@ -97,23 +135,41 @@ router.post("/cashfree/webhook", async (req, res) => {
           amount: amount,
           paymentMethod: paymentMethod,
           userId: existingUser.id,
+          pricingTierId: tier.id,
         },
       }),
 
       prisma.user.update({
         where: { id: existingUser.id },
         data: {
-          credits: { increment: 100 },
+          credits: { increment: tier.creditsAwarded },
           hasReceivedRenewalPassRequest: false,
           paymentCustomerId: orderId,
-          passValidity: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          passValidity: expirationDate,
           totalPassesPurchased: { increment: 1 },
+          purchasedPassName: tier.name,
+          bookedDate: date,
+          bookedStartTime: startTime,
+          bookedEndTime: endTime,
         },
       }),
     ]);
 
+    await sleep(3000);
+
     try {
-      await sendInstagramMessage(igAccountId as string, "hii");
+      const userInfo = await prisma.user.findUnique({
+        where: { igAccountId: igAccountId },
+        select: { id: true, credits: true, purchasedPassName: true},
+      });
+
+      if(userInfo?.purchasedPassName === 'Basic'){
+        await sendInstagramMessage(igAccountId as string, "hii");
+      }
+      if(userInfo?.purchasedPassName === 'Premium'){
+        // await sendInstagramMessage(igAccountId as string, "hiii");
+        
+      }
       logger.info(`Successfully sent reply to ${igAccountId}`);
     } catch (error) {
       logger.error(

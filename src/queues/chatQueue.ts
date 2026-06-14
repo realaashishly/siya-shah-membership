@@ -10,6 +10,8 @@ export const chatQueue = new Queue('instagram-chat-queue', {
         delay: 2000
     },
     removeOnComplete: true,
-    removeOnFail: false
+    removeOnFail: {
+        count: 0 // Deletes the job immediately if it fails after 3 attempts
+    }
   }
 });

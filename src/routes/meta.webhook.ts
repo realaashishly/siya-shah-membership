@@ -12,6 +12,7 @@ import { sleep } from "../utils/index.js";
 import { chatQueue } from "../queues/chatQueue.js";
 
 import prisma from "../config/prisma.js";
+import { redisConnection } from "../config/redis.js";
 
 router.get("/meta/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -20,7 +21,6 @@ router.get("/meta/webhook", (req, res) => {
 
   if (mode && token) {
     if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) {
-      logger.success("Meta Webhook verified successfully!");
       return res.status(200).type("text/plain").send(challenge);
     } else {
       logger.error("Meta Webhook verification failed: Token mismatch.");
@@ -33,6 +33,8 @@ router.get("/meta/webhook", (req, res) => {
 
 router.post("/meta/webhook", async (req, res) => {
   const body = req.body;
+
+  res.status(200).send("EVENT_RECEIVED");
 
   if (body.object === "instagram") {
     try {
@@ -51,20 +53,12 @@ router.post("/meta/webhook", async (req, res) => {
               const messageContent = messagingEvent.message.text;
               const checkoutUrl = process.env.NEXT_PUBLIC_API_URL;
 
-              logger.info(
-                `Received DM from IG User ${igAccountId}: "${messageContent}"`,
-              );
-
               let user = await prisma.user.findUnique({
                 where: { igAccountId },
               });
 
               if (!user) {
-                logger.warn("User not found creating user");
-
                 const profileInfo = await getInstagramUserProfile(igAccountId);
-
-                logger.info("profile info: ", profileInfo);
 
                 if (igAccountId == "1673888927163653") {
                   await sendInstagramMessage(igAccountId, "hii");
@@ -92,7 +86,7 @@ router.post("/meta/webhook", async (req, res) => {
                   },
                 });
 
-                return res.status(200).send("EVENT_RECEIVED");
+                continue;
               }
 
               if (user && user.totalPassesPurchased > 0) {
@@ -101,7 +95,7 @@ router.post("/meta/webhook", async (req, res) => {
 
                 const isOutOfCredits = user.credits <= 0;
 
-                if (isOutOfCredits) {
+                if (isOutOfCredits || isExpired) {
                   // Send renewal pitch only once
                   if (!user.hasReceivedRenewalPassRequest) {
                     await sendInstagramMessage(
@@ -131,27 +125,80 @@ router.post("/meta/webhook", async (req, res) => {
                     });
                   }
 
-                  // ALWAYS block further processing
-                  return res.status(200).send("EVENT_RECEIVED");
+                  continue;
+                }
+
+                if (user.purchasedPassName === "Premium") {
+                  logger.info(
+                    `Human handoff: Ignored message from Premium user ${igAccountId}.`,
+                  );
+                  continue;
                 }
               }
 
-              await chatQueue.add(`instagram-chat-queue`, {
-                igAccountId,
-                messageContent,
-              });
+              if(user && user.totalPassesPurchased <= 0){
+                // await sendInstagramMessage(
+                //   igAccountId,
+                //   "Pass kharidlo",
+                // );
+
+                // await sleep(800);
+
+                // await sendInstagramMessage(
+                //   igAccountId,
+                //   `${checkoutUrl}/?igId=${igAccountId}`,
+                // );
+
+                continue;
+              }
+
+              const redisBufferKey = `chat_buffer:${igAccountId}`;
+              await redisConnection.rpush(redisBufferKey, messageContent);
+              await redisConnection.expire(redisBufferKey, 600);
+
+              const baseJobId = `debounce-${igAccountId}`;
+              let jobIdToUse = baseJobId;
+
+              const existingJob = await chatQueue.getJob(baseJobId);
+
+              if (existingJob) {
+                const state = await existingJob.getState();
+
+                if (state === "failed" || state === "completed") {
+                  logger.warn(
+                    `Cleaning up old job state for user ${igAccountId}`,
+                  );
+                  await existingJob.remove();
+                } else if (state === "active") {
+                  jobIdToUse = `debounce-${igAccountId}-${Date.now()}`;
+                  logger.info(
+                    `User ${igAccountId} messaged while AI is typing. Queuing next.`,
+                  );
+                }
+              }
+              logger.success("removed stuck jobs");
+
+              if (user.purchasedPassName === "Basic") {
+                await chatQueue.add(
+                  `instagram-chat-queue`,
+                  {
+                    igAccountId,
+                  },
+                  {
+                    jobId: jobIdToUse,
+                    delay: 3500,
+                    removeOnComplete: true,
+                  },
+                );
+              }
             }
           }
         }
       }
-      return res.status(200).send("EVENT_RECEIVED");
     } catch (error) {
       logger.error("Error processing webhook payload:", error);
-      return res.sendStatus(500);
     }
   }
-
-  return res.sendStatus(404);
 });
 
 export default router;

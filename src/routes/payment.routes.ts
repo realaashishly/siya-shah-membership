@@ -1,5 +1,5 @@
 import express from "express";
-import 'dotenv/config';
+import "dotenv/config";
 import prisma from "../config/prisma.js";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -14,29 +14,50 @@ declare module "express-serve-static-core" {
 const router = express.Router();
 
 router.post("/create/order", async (req, res) => {
-  const { igAccountId } = req.body;
+  const { igAccountId, planName } = req.body;
 
-  if (!igAccountId) {
-    logger.error("Missing required fields: igAccountId, startTime, endTime")
+  logger.info(
+    `Processing payment request: igAccountId=${igAccountId}, planName=${planName}`,
+  );
+
+  // 1. Validate Input
+  if (!igAccountId || !planName) {
+    logger.error("Missing required fields: igAccountId or planName");
     return res.status(400).json({
-      error: "Missing required fields: igAccountId, startTime, endTime",
+      success: false,
+      error: "Missing required fields: igAccountId and planName are required.",
     });
   }
 
-  // const endBookingTime = new Date(startBookingTime.getTime() + 60 * 60 * 1000);
+  // 2. Validate Pricing Tier
+  const prices: Record<string, number> = {
+    Basic: 9.0,
+    Premium: 99.0,
+  };
 
+  const amount = prices[planName as keyof typeof prices];
+
+  if (!amount) {
+    logger.error(`Invalid plan name received: ${planName}`);
+    return res.status(400).json({
+      success: false,
+      error: `Invalid plan name: ${planName}. Available plans are: ${Object.keys(prices).join(", ")}`,
+    });
+  }
+
+  // 3. Initiate Payment with Cashfree
   try {
-    const randId = uuidv4();
+    const orderId = `order_${uuidv4()}`;
 
     const response = await axios.post(
       "https://sandbox.cashfree.com/pg/orders",
       {
-        order_id: `order_${randId}`,
-        order_amount: 9.0,
+        order_id: orderId,
+        order_amount: amount, 
         order_currency: "INR",
         customer_details: {
           customer_id: igAccountId,
-          customer_email: "test@example.com",
+          customer_email: "test@example.com", 
           customer_phone: "9999999999",
         },
       },
@@ -49,14 +70,29 @@ router.post("/create/order", async (req, res) => {
         },
       },
     );
-    res.json({
+
+    // 4. Send Success Response
+    return res.status(200).json({
+      success: true,
       payment_session_id: response.data.payment_session_id,
       bookingId: igAccountId,
+      orderId: orderId,
     });
-  } catch (error) {
-    res.status(500).json({
-      error: "Booking initiation failed",
-      details: error,
+  } catch (error: any) {
+    // Safely extract the error message from Axios without crashing JSON stringify
+    const apiError =
+      error.response?.data?.message ||
+      error.message ||
+      "Unknown Cashfree API Error";
+
+    logger.error(
+      `Cashfree booking initiation failed for ${igAccountId}: ${apiError}`,
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: "Payment gateway initiation failed",
+      details: process.env.NODE_ENV === "development" ? apiError : undefined,
     });
   }
 });

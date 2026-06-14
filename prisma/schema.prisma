@@ -12,74 +12,78 @@ datasource db {
 }
 
 model User {
-  id                            String    @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   // Instagram Data
-  igAccountId                   String    @unique
-  username                      String?   @unique 
-  name                          String? 
-  igProfileUrl                  String?   
-  
+  igAccountId  String  @unique
+  username     String? @unique
+  name         String?
+  igProfileUrl String?
+
   // Moderation & Roles
-  role                          String    @default("USER") 
-  isBanned                      Boolean   @default(false)
-  
+  role     Role    @default(USER)
+  isBanned Boolean @default(false)
+
   // Interaction State Flags
   hasReceivedPitchRequest       Boolean   @default(false)
   hasReceivedRenewalPassRequest Boolean   @default(false)
-  lastInteractedAt              DateTime? 
-  
-  // Slot Booking State
-  bookedDate                    DateTime?
-  bookedStartTime               DateTime?
-  bookedEndTime                 DateTime?
-  
-  // Subscription / Pass State
-  passValidity                  DateTime? 
-  credits                       Int       @default(0) 
-  
-  // Business & Payments
-  paymentCustomerId             String?   
-  totalPassesPurchased          Int       @default(0) 
+  lastInteractedAt              DateTime?
+  purchasedPassName             String     @default("Free")
 
-  transactions                  Transaction[]
-  
+  // Slot Booking State
+  bookedDate      DateTime?
+  bookedStartTime DateTime?
+  bookedEndTime   DateTime?
+
+  // Subscription / Pass State
+  passValidity DateTime?
+  credits      Int       @default(0)
+
+  // Business & Payments
+  paymentCustomerId    String?
+  totalPassesPurchased Int     @default(0)
+
+  transactions Transaction[]
+
   // System Timestamps
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PricingTier {
-  id              String        @id @default(uuid())
-  name            String        // e.g., "Starter Pass", "Power User Pass"
-  description     String?       
-  price           Float         
-  creditsAwarded  Int           
-  durationHours   Int           
-  isActive        Boolean       @default(true)
+  id             String  @id @default(uuid())
+  name           String // e.g., "Starter Pass", "Power User Pass"
+  description    String?
+  price          Float
+  creditsAwarded Int
+  durationHours  Int
+  isActive       Boolean @default(true)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Transaction {
-  id            String            @id @default(uuid())
-  userId        String
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  orderId     String  @unique
+  cfPaymentId String? @unique
 
-  orderId       String            @unique
-  cfPaymentId   String?           @unique
-
-  amount        Float             @default(9.00)
+  amount        Float
   currency      String            @default("INR")
   status        TransactionStatus @default(PENDING)
   paymentMethod String?
+  pricingTierId String?
+  pricingTier   PricingTier?      @relation(fields: [pricingTierId], references: [id], onDelete: SetNull)
 
   failureReason String?
 
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([orderId])
@@ -87,7 +91,7 @@ model Transaction {
 
 enum Role {
   ADMIN
-  USER 
+  USER
   DEVELOPER
 }
 
@@ -96,5 +100,3 @@ enum TransactionStatus {
   SUCCESS
   FAILED
 }
-
-

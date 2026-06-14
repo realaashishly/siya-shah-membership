@@ -11,11 +11,19 @@ import cashfreeWebhookRouter from "./routes/cashfree.webhook.js";
 import paymentRouter from "./routes/payment.routes.js";
 import bookingSlotRouter from "./routes/available.slot.js";
 import './workers/chatWorker.js'
+import { chatQueue } from "./queues/chatQueue.js";
+import { logger } from "./utils/logger.js";
+import { redisConnection } from "./config/redis.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: ["https://book-with-siya.vercel.app"],
+    credentials: true,
+  }),
+);
 app.use(
   express.json({
     verify: (req: any, res, buf) => {
@@ -38,6 +46,18 @@ const startServer = async () => {
   app.use("/api", bookingSlotRouter);
   app.use("/api/payments", cashfreeWebhookRouter);
   app.use("/api/payments", paymentRouter);
+
+
+  app.get("/api/clear-queue", async (req, res) => {
+  try {
+    // This tells BullMQ to completely wipe everything in Redis for this queue
+    await chatQueue.obliterate({ force: true });
+    res.send("<h1>Queue successfully wiped! Stuck jobs deleted.</h1>");
+  } catch (error: any) {
+    res.send(`<h1>Error wiping queue: ${error.message}</h1>`);
+  }
+  });
+
 
   app.listen(PORT, () => {
     console.log(`[server]: Server is running at http://localhost:${PORT}`);

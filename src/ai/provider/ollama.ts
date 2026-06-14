@@ -4,6 +4,7 @@ import { safeParseJSON } from "../../utils/index.js";
 import dotenv from "dotenv";
 import { SYSTEM_INSTRUCTION } from "../prompt/prompt.js";
 import { logger } from "../../utils/logger.js";
+import { tools } from "../../utils/toolFunctionCalling.js";
 dotenv.config();
 
 
@@ -21,6 +22,7 @@ if (process.env.OLLAMA_API_KEY) {
 
 const ollama = new Ollama(ollamaOptions);
 
+
 export async function generateOllamaResponse(chatHistory: string, currentMessage: string) {
   try {
     logger.info(`Sending inference request to Ollama (${DEFAULT_MODEL})...`);
@@ -37,6 +39,7 @@ export async function generateOllamaResponse(chatHistory: string, currentMessage
       ],
       think: false,
       stream: false,
+      // tools: tools,
       format: "json",
       options: {
         temperature: 0.55,
