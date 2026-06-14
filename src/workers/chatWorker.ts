@@ -30,12 +30,16 @@ export const chatWorker = new Worker(
         0,
         -1,
       );
-      await redisConnection.del(redisBufferKey);
 
+      const messageCount = bufferedMessages.length;
+      
+      
       if (!bufferedMessages || bufferedMessages.length === 0) {
         logger.warn(`[Checkpoint 3] ⚠️ Redis buffer was empty! Exiting silently.`);
         return;
       }
+      
+      await redisConnection.ltrim(redisBufferKey, messageCount, -1);
 
       const combinedMessageText = bufferedMessages.join("\n");
       logger.info(`[Checkpoint 3] Buffer fetched successfully. Message: "${combinedMessageText}"`);

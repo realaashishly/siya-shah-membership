@@ -18,6 +18,8 @@ const router = express.Router();
 
 router.post("/cashfree/webhook", async (req, res) => {
 
+  res.status(200).send("EVENT_RECEIVED");
+
   
   try {
     const timestamp = req.headers["x-webhook-timestamp"];
@@ -38,9 +40,6 @@ router.post("/cashfree/webhook", async (req, res) => {
       logger.error("Webhook signature mismatch!");
       return res.status(401).send("Invalid signature");
     }
- res
-   .status(200)
-      .json({ success: true, message: "Payment processed successfully" });
     
     const payload = req.body;
 
@@ -160,7 +159,9 @@ router.post("/cashfree/webhook", async (req, res) => {
       }),
     ]);
 
-   
+    res
+      .status(200)
+      .json({ success: true, message: "Payment processed successfully" });
 
     await sleep(3000);
 
