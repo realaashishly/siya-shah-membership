@@ -17,6 +17,8 @@ const CASHFREE_SECRET = process.env.CASHFREE_CLIENT_SECRET;
 const router = express.Router();
 
 router.post("/cashfree/webhook", async (req, res) => {
+
+  
   try {
     const timestamp = req.headers["x-webhook-timestamp"];
     const signature = req.headers["x-webhook-signature"];
@@ -155,6 +157,10 @@ router.post("/cashfree/webhook", async (req, res) => {
       }),
     ]);
 
+    res
+      .status(200)
+      .json({ success: true, message: "Payment processed successfully" });
+
     await sleep(3000);
 
     try {
@@ -178,9 +184,7 @@ router.post("/cashfree/webhook", async (req, res) => {
       );
     }
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Payment processed successfully" });
+
   } catch (error) {
     res.status(500).send("Internal server error");
   }

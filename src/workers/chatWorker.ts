@@ -114,10 +114,10 @@ export const chatWorker = new Worker(
   {
     connection: redisConnection as any,
     concurrency: 1,
-    limiter: {
-      max: 3,        
-      duration: 60000
-    }
+    // limiter: {
+    //   max: 3,        
+    //   duration: 60000
+    // }
   },
 );
 
